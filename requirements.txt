@@ -1,8 +1,6 @@
 torch
 torchvision
-streamlit
-segmentation-models-pytorch
-opencv-python
+numpy
 Pillow
+segmentation-models-pytorch
 matplotlib
-albumentations

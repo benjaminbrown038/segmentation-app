@@ -1,42 +1,39 @@
-# segment.py
 import torch
 import numpy as np
 from PIL import Image
-import torchvision.transforms.functional as TF
-import segmentation_models_pytorch as smp
+import torchvision.transforms as T
 
-# Load pretrained DeepLabV3 model (for demonstration)
+# Load pretrained U²-Net
 def load_model():
-    model = smp.DeepLabV3(
-        encoder_name="resnet34",
-        encoder_weights="imagenet",
-        classes=21,          # matches PASCAL VOC
-        activation=None
-    )
+    model = torch.hub.load("xuebinqin/U-2-Net", "u2net")
     model.eval()
     return model
 
-# Preprocess image
 def preprocess(image):
-    image = image.convert("RGB")
-    image = image.resize((256, 256))
-    tensor = TF.to_tensor(image).unsqueeze(0)
-    tensor = TF.normalize(tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    return tensor
+    transform = T.Compose([
+        T.Resize((320, 320)),
+        T.ToTensor()
+    ])
+    return transform(image).unsqueeze(0)
 
-# Perform segmentation and create mask overlay
 def segment_image(model, image_path):
-    image = Image.open(image_path)
+    image = Image.open(image_path).convert("RGB")
     tensor = preprocess(image)
 
     with torch.no_grad():
-        output = model(tensor)
-        mask = torch.argmax(output.squeeze(), dim=0).cpu().numpy()
+        d1, *_ = model(tensor)
+        mask = d1.squeeze().cpu().numpy()
+        mask = (mask - mask.min()) / (mask.max() - mask.min())
+        mask = (mask > 0.5).astype(np.uint8) * 255
 
-    mask_rgb = np.zeros((*mask.shape, 3), dtype=np.uint8)
-    colors = np.random.randint(0, 255, size=(mask.max() + 1, 3))
-    for i in range(mask.max() + 1):
-        mask_rgb[mask == i] = colors[i]
+    mask_img = Image.fromarray(mask).resize(image.size)
+    overlay = Image.blend(image, Image.merge("RGB", (mask_img, mask_img, mask_img)), alpha=0.3)
 
-    overlay = Image.blend(image.resize(mask_rgb.shape[:2][::-1]), Image.fromarray(mask_rgb), alpha=0.5)
-    return overlay, mask
+    # Save outputs
+    mask_img.save("samples/outputs/mask.png")
+    overlay.save("samples/outputs/overlay.png")
+    return overlay
+
+if __name__ == "__main__":
+    model = load_model()
+    segment_image(model, "samples/input.jpg")
