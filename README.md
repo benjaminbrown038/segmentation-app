@@ -11,3 +11,4 @@ git clone https://github.com/yourusername/portrait_segmentation_app.git
 cd portrait_segmentation_app
 pip install -r requirements.txt
 python segment.py
+```
